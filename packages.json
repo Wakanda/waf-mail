@@ -1,0 +1,23 @@
+{
+    "name": "waf-mail",
+    "description": "Simple Mail module + advanced SMTP & POP3 sub-modules",
+    "version": "0.2",
+    "author" : "4D Wakanda Team",
+    "homepage": "http://wakanda.org",
+    "repository" : {
+        "type" : "git",
+        "url" : "http://github.com/Wakanda/waf-mail.git"
+    },
+    "main" : "./mail",
+    "licenses" : [
+        {
+            "type": "MIT",
+            "url": "http://github.com/Wakanda/waf-mail/blob/master/MIT-LICENSE"
+        }
+    ],
+    "engine": [ 
+        "node >=0.3.0",
+        "wakanda >=DP2"
+    ],
+    "keywords": ["e-mail", "email", "sendmail", "pop3", "smtp", "client"]
+}
