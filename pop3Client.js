@@ -132,7 +132,7 @@ function POP3ClientScope () {
 				var i, j;
 				
 				for (i = 0, j = lastBuffer.length - 5; i < 5; i++, j++)
-				
+								
 					if (eomSequence[i] != lastBuffer[j])
 					
 						return false;
@@ -182,25 +182,35 @@ function POP3ClientScope () {
 		// (see error codes) if a problem occured during reading.
 		
 		var readData = function (data) {
-		/*
+			
 			if (state == STATES.READING_RESPONSE_RETR) {
-
+			
 				memoryBuffers.push(data);
+				if (memoryBuffers.length == 1) {
 				
+					// Check if retrieval failed.
+				
+					string = memoryBuffers[0].toString('ascii', 0, 4);
+					if (string == '-ERR')
+					
+						return -1;
+				
+				} 
+
 				if (isEndOfMessage()) {
 				
 					var	string;
 					
 					string = memoryBuffers[0].toString('ascii', 0, 3);
 					isOkResponse = string == '+OK' ? 0 : 1;
-										
+					
 					return 1;
 				
 				} else 
 				
 					return 0;
 			
-			} else */ {
+			} else {
 			
 				var	lines = data.toString('binary').split('\r\n');	// Support 8-bit characters (8BITMIME).
 						

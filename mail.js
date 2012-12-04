@@ -80,6 +80,10 @@ function MailScope () {
 	
 	};
 	
+	// Instantiate a MIMEReader mail parser.
+	
+	var mimeReader	= new MIMEReader();
+	
 	function Mail (from, to, subject, content) {
 
 		// Body must be properly formatted as explained in section 2.3 of specification.
@@ -280,7 +284,7 @@ function MailScope () {
 		
 		}
 		
-		// Retrieve body of mail, just ad CRLF at end of each line and it is ready to send using SMTP.
+		// Retrieve body of mail, just add CRLF at end of each line and it is ready to send using SMTP.
 
 		this.getBody = function () {
 		
@@ -478,6 +482,61 @@ function MailScope () {
 		
 		}
 		
+		// Parse an email from an array of buffers, which contain data received from a POP3 server.
+		
+		this.parse = function (memoryBuffers) {
+
+			body = null;		
+			mimeReader.parseMail(this, memoryBuffers);
+						
+			// Always parse encoded words in header field bodies.
+			
+			for (k in this) 
+			
+				if (typeof this[k] == 'string')
+				
+					this[k] = mimeReader.parseEncodedWords(this[k]);
+					
+			// If MIME is used, set body as first "text/plain" part if any.
+			
+			if  (this.isMIME()) 
+			
+				for (var i = 0; i < this.messageParts.length; i++) 
+				
+					if (this.messageParts[i].mediaType.match(/text\/plain/) != null) {
+
+						var	text	= this.messageParts[i].asText;
+						
+						this.setBodyType(this.messageParts[i].mediaType);
+						this.setBody(text.split("\r\n"));
+						
+						break;
+					
+					}
+		
+		}
+		
+		// Return true if email is using MIME, in which case content is in messageParts property.
+		// Otherwise body is an Array of lines in body property.
+		
+		this.isMIME = function () {
+		
+			return typeof this.messageParts != 'undefined';
+		
+		}
+		
+		// For MIME email, return message parts.
+		
+		this.getMessageParts = function () {
+		
+			return this.messageParts;
+		
+		}
+
+		// Old parsing routines. To be removed.
+		
+/*
+		
 		// Parse an email as received from POP3 or IMAP. Take an array of lines, startLine and endLine are the start
 		// and end (both included) indexes to read from the lines array. All arguments are mandatory. Return true if 
 		// parsed successfully.
@@ -559,6 +618,8 @@ function MailScope () {
 			return true;
 			
 		}
+
+*/
 		
 		// Handle constructor call with arguments.
 		

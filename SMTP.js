@@ -636,9 +636,20 @@ function SMTPScope () {
 			var mimeMessage	= email.getMIMEMessage();
 			
 			if (mimeMessage != null) {
+
+				// Make sure there is only one "Content-Type" field in header. 
+				// Otherwise, some mail client may not decode message correctly as MIME multipart.
+
+				for (var k in email) 
+				
+					if (typeof email[k] == 'string' && k.match(/^content\-type$/i) != null)
+				
+						delete email[k];
+				
+				// Add MIME version and "Content-Type" field.
 			
-				message.addField('MIME-Version', '1.0');
-				message.addField('Content-Type', 'multipart/mixed; boundary="' + mimeMessage.boundary + '"');
+				email.addField('MIME-Version', '1.0');
+				email.addField('Content-Type', 'multipart/mixed; boundary="' + mimeMessage.boundary + '"');
 			
 			}
 			

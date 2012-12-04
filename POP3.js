@@ -359,6 +359,7 @@ var getAll = function (address, port, isSSL, username, password, allMails, doMar
 	var isWakanda	= typeof requireNative != 'undefined';
 	var pop3		= new POP3();
 	var	status		= false;
+	var mailModule	= require("waf-mail/Mail");
 	
 	if (typeof address != 'string' || typeof port != 'number' || typeof isSSL != 'boolean'
 	|| typeof username != 'string' || typeof password != 'string' 
@@ -421,7 +422,7 @@ var getAll = function (address, port, isSSL, username, password, allMails, doMar
 			
 		else {
 			
-			var	i = 1;	//** numberMessages - 1
+			var	i = 1;
 			
 			// Callbacks for retrieval "asynchronous" loop.
 			
@@ -457,8 +458,14 @@ var getAll = function (address, port, isSSL, username, password, allMails, doMar
 					exit();
 										
 				else {
-										
-					allMails.push(response);
+									
+					// Received mail(s) are parsed.
+					
+					var	newMail	= new mailModule.Mail();
+					
+					newMail.parse(response);
+					allMails.push(newMail);
+					
 					if (doMarkForDeletion) 
 						
 						pop3.markForDeletion(i, markCallback);
