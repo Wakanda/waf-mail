@@ -1,24 +1,18 @@
-/* Copyright (c) 4D, 2011
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
-
+/*
+* This file is part of Wakanda software, licensed by 4D under
+*  (i) the GNU General Public License version 3 (GNU GPL v3), or
+*  (ii) the Affero General Public License version 3 (AGPL v3) or
+*  (iii) a commercial license.
+* This file remains the exclusive property of 4D and/or its licensors
+* and is protected by national and international legislations.
+* In any event, Licensee's compliance with the terms and conditions
+* of the applicable license constitutes a prerequisite to any use of this file.
+* Except as otherwise expressly stated in the applicable license,
+* such license does not include any other license or rights on this file,
+* 4D's and/or its licensors' trademarks and/or other proprietary rights.
+* Consequently, no title, copyright or other proprietary rights
+* other than those specified in the applicable license is granted.
+*/
 // Low level SMTP client with support for ESMTP extensions.
 //
 // References:
@@ -44,6 +38,8 @@
 // 		Low level SMTP client, best used if familiar with SMTP protocol. Object can do TCP/IP connection at creation
 //		(if given proper arguments when constructor is called). Or manually connect using connect() or sslConnect().
 //		When connected, it is up to caller to issue proper commands and follow protocol.
+
+var threeDigitReply = typeof requireNative != 'undefined' ? require('waf-mail/threeDigitReply') : require('./threeDigitReply.js');
 
 function SMTPClientScope () {
 	
@@ -76,7 +72,9 @@ function SMTPClientScope () {
 		READING_REPLY_VRFY:		FLAG_READING_REPLY | 10,
 		READING_REPLY_EXPN:		FLAG_READING_REPLY | 11,
 		READING_REPLY_HELP:		FLAG_READING_REPLY | 12,
-		READING_REPLY_RAW:		FLAG_READING_REPLY | 13,
+		READING_REPLY_BDAT:		FLAG_READING_REPLY | 13,
+		
+		READING_REPLY_RAW:		FLAG_READING_REPLY | 14,
 		
 		// Erroneous states.
 		
@@ -88,9 +86,7 @@ function SMTPClientScope () {
 	
 	var net				= isWakanda ? requireNative('net') : require('net');
 	var tls				= isWakanda ? requireNative('tls') : require('tls');
-	
-	var threeDigitReply = isWakanda ? require('waf-mail/threeDigitReply') : require('./threeDigitReply.js');
-	
+		
 	// SMTPClient exception, just contains an error code (see below).
 	
 	function SMTPClientException (code) {
@@ -115,7 +111,7 @@ function SMTPClientScope () {
 		// Current command's reply.
 		
 		var reply;			
-		var replyCallback;
+		var replyCallback; 
 		
 		// Feed data received from socket to this function.
 			
@@ -123,8 +119,7 @@ function SMTPClientScope () {
 
 			if (state & FLAG_READING_REPLY) {
 			
-				var	r	= reply.readData(data.toString('binary'));	// Support 8-bit characters
-												// (8BITMIME).
+				var	r	= reply.readData(data.toString('binary'));	// Support 8-bit characters (8BITMIME).
 
 				if (!r) {
 				
@@ -215,6 +210,7 @@ function SMTPClientScope () {
 					case STATES.READING_REPLY_VRFY:	
 					case STATES.READING_REPLY_EXPN:	 
 					case STATES.READING_REPLY_HELP:
+					case STATES.READING_REPLY_BDAT:
 					
 					case STATES.READING_REPLY_RAW:
 					
@@ -458,7 +454,7 @@ function SMTPClientScope () {
 			
 			else if (typeof arguments[1] != 'function') {
 				
-				if (is8bitMIME == true) 
+				if (is8bitMIME == true)
 				
 					sendCommand('MAIL FROM:' + from + ' BODY=8BITMIME\r\n', STATES.READING_REPLY_MAIL, callback);
 				
@@ -502,8 +498,14 @@ function SMTPClientScope () {
 		// sequence, which mark the end of mail content submission.
                 
         this.sendContent = function (content) {
+
+			if (state != STATES.IDLE) 
+				
+				throw new SMTPClientException(SMTPClientException.INVALID_STATE);
         
-            socket.write(content);
+			else
+			
+				socket.write(content);
         
         }
                
@@ -566,6 +568,45 @@ function SMTPClientScope () {
 				throw new SMTPClientException(SMTPClientException.INVALID_ARGUMENT);
 					
 		}
+		
+		// Send a BDAT command along with data (a Buffer object).
+		
+		this.sendBDAT = function (buffer, isLast, callback) {
+		
+			if (state != STATES.IDLE) 
+				
+				throw new SMTPClientException(SMTPClientException.INVALID_STATE);
+		
+			else if (typeof buffer == 'undefined' || !(buffer instanceof Buffer))
+			
+				throw new SMTPClientException(SMTPClientException.INVALID_ARGUMENT);
+				
+			else {
+			
+				if (typeof isLast == 'function') {
+				
+					callback = isLast;
+					isLast = false;
+					
+				}
+					
+				if (typeof callback != 'undefined' && typeof callback != 'function') 
+				
+					throw new SMTPClientException(SMTPClientException.INVALID_ARGUMENT);
+			
+				else {
+
+					reply = new threeDigitReply.ThreeDigitReply();
+					replyCallback = callback;
+					state = STATES.READING_REPLY_BDAT;
+					socket.write(isLast ? 'BDAT ' + buffer.length + ' LAST\r\n' : 'BDAT ' + buffer.length + '\r\n');
+					socket.write(buffer);
+					
+				}
+			
+			}
+			
+		}	
 		
 		// Send a "raw" command, can be anything. The '\r\n' terminating the command line will be added automatically.
 		

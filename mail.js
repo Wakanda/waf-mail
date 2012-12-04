@@ -1,24 +1,18 @@
-/* Copyright (c) 4D, 2011
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
-
+/*
+* This file is part of Wakanda software, licensed by 4D under
+*  (i) the GNU General Public License version 3 (GNU GPL v3), or
+*  (ii) the Affero General Public License version 3 (AGPL v3) or
+*  (iii) a commercial license.
+* This file remains the exclusive property of 4D and/or its licensors
+* and is protected by national and international legislations.
+* In any event, Licensee's compliance with the terms and conditions
+* of the applicable license constitutes a prerequisite to any use of this file.
+* Except as otherwise expressly stated in the applicable license,
+* such license does not include any other license or rights on this file,
+* 4D's and/or its licensors' trademarks and/or other proprietary rights.
+* Consequently, no title, copyright or other proprietary rights
+* other than those specified in the applicable license is granted.
+*/
 // Email library.
 //
 // Reference:
@@ -72,11 +66,37 @@ function MailScope () {
 	
 	var foldedLineStartRegExp		= /^ |\t/;
 	
+	// Translate lower case field names to "camel" case. That way, user can use syntax "mail.subject = 'somebody'" 
+	// and still be compliant.
+	
+	var fieldNameTable	= {
+	
+		from:			'From',
+		to:				'To',
+		cc:				'Cc',
+		bcc:			'Bcc',
+		subject:		'Subject',
+		organization:	'Organization',
+	
+	};
+	
 	function Mail (from, to, subject, content) {
 
 		// Body must be properly formatted as explained in section 2.3 of specification.
 
-		var	body	= new Array();	// An empty body is valid.
+		var	body		= new Array();	// An empty body is valid.
+		
+		// Type of the body (usually "text/plain" or "text/html"), default is "text/plain".
+		
+		var bodyType 	= "text/plain";
+		
+		// If user adds attachment(s) a MimeWriter object will be created and will handle that.
+		
+		var mimeWriter	= null;
+		
+		// Have only one mimeMessage object.
+				
+		var mimeMessage	= null;
 		
 		// Exceptions for Mail, this will explain error, see codes below.
 		
@@ -84,7 +104,8 @@ function MailScope () {
 		
 			this.code = code;
 		
-		} 
+		}
+		
 		MailException.INVALID_ARGUMENT	= -1;	// Function has been called with incorrect argument.
 		MailException.INVALID_STATE		= -2;	// Should be impossible.
 				
@@ -186,6 +207,7 @@ function MailScope () {
 		this.getHeader = function () {
 		
 			var	header = new Array();
+			var name;
 		
 			for (name in this)
 			
@@ -193,11 +215,17 @@ function MailScope () {
 					
 					continue;
 					
-				else if (typeof this[name] == 'string')
+				else if (typeof this[name] == 'string') {
 				
-					header.push(name + ': ' + this[name]);
-							
-				else if (this[name] instanceof Array) {
+					if (typeof fieldNameTable[name] == 'string') 
+					
+						header.push(fieldNameTable[name] + ': ' + this[name]);
+						
+					else
+					
+						header.push(name + ': ' + this[name]);
+					
+				} else if (this[name] instanceof Array) {
 				
 					var	i;
 				
@@ -207,10 +235,14 @@ function MailScope () {
 						
 							throw new MailException(MailException.INVALID_STATE);	// Impossible!
 							
-						else 
+						else if (typeof fieldNameTable[name] == 'string') 
+					
+							header.push(fieldNameTable[name] + ': ' + this[name][i]);
+						
+						else
 					
 							header.push(name + ': ' + this[name][i]);
-				
+					
 				} else 
 				
 					continue;	// Field names may "collide" with object's attributes, ignore.
@@ -239,6 +271,15 @@ function MailScope () {
 
 		}
 		
+		// Same as setBody() except that it defines the body type as html.
+		
+		this.setBodyAsHTML = function (newBody) {
+		
+			this.setBody(newBody);
+			this.setBodyTypeToHTML();
+		
+		}
+		
 		// Retrieve body of mail, just ad CRLF at end of each line and it is ready to send using SMTP.
 
 		this.getBody = function () {
@@ -247,6 +288,34 @@ function MailScope () {
 		
 		}
 		
+		// Set and get body type. Must be a valid MIME type string.
+		
+		this.setBodyType = function (newBodyType) {
+		
+			if (typeof newBodyType == 'string')
+			
+				bodyType = newBodyType;
+				
+			else
+		
+				throw new MailException(MailException.INVALID_ARGUMENT);
+		
+		}
+		
+		this.getBodyType = function () {
+		
+			return bodyType;
+		
+		}
+		
+		// Helper function to set body type as HTML.
+
+		this.setBodyTypeToHTML = function () {
+		
+			bodyType = 'text/html';
+		
+		}
+				
 		// Format and set the body of mail message, return true if successful. The new body can be a single 
 		// string or an array of lines (strings). For an array of strings, the new body is considered as the
 		// concatenation of all its strings. Formating replaces single '\r' (CR) characters by blanks and 
@@ -365,6 +434,48 @@ function MailScope () {
 				
 			}
 			
+		}
+		
+		// Add an attachment (a MIME part). Currently supported.
+		
+		this.addAttachment = function (attachment, name, mimeType, contentID, isInline) {
+		
+					
+			// Doesn't check attachment type. 
+		
+			if (typeof name != 'string' || typeof mimeType != 'string') 
+						
+				throw new MailException(MailException.INVALID_ARGUMENT);
+				
+			else {
+			
+				if (mimeWriter == null) 
+			
+					mimeWriter = new MIMEWriter();
+									
+				mimeWriter.addPart(attachment, name, mimeType, contentID, isInline);
+				
+			}
+		
+		}
+				
+		// Return MIMEMessage object if mail has attachment(s), or null otherwise.
+		
+		this.getMIMEMessage = function () {
+		
+			if (mimeWriter == null)
+			
+				return null;
+				
+			else if (mimeMessage == null) {
+			
+				mimeMessage = mimeWriter.getMIMEMessage();
+				return mimeMessage;
+			
+			} else 
+					
+				return mimeMessage;
+		
 		}
 		
 		// Parse an email as received from POP3 or IMAP. Take an array of lines, startLine and endLine are the start
@@ -517,8 +628,19 @@ var createMessage = function (from, recipient, subject, content) {
 		
 	var message	= new Mail();
 			
-	message.From = from;
-	message.To = recipient;		
+	message.From = from;	
+	if (recipient instanceof Array) {
+	
+		var	i;
+		
+		for (i = 0; i < recipient.length; i++)
+		
+			message.addField('To', recipient[i]);
+	
+	} else
+	
+		message.To = recipient;
+		
 	message.Subject = subject;
 	message.setContent(content);
 						

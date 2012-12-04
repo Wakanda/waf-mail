@@ -1,24 +1,18 @@
-/* Copyright (c) 4D, 2011
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
-
+/*
+* This file is part of Wakanda software, licensed by 4D under
+*  (i) the GNU General Public License version 3 (GNU GPL v3), or
+*  (ii) the Affero General Public License version 3 (AGPL v3) or
+*  (iii) a commercial license.
+* This file remains the exclusive property of 4D and/or its licensors
+* and is protected by national and international legislations.
+* In any event, Licensee's compliance with the terms and conditions
+* of the applicable license constitutes a prerequisite to any use of this file.
+* Except as otherwise expressly stated in the applicable license,
+* such license does not include any other license or rights on this file,
+* 4D's and/or its licensors' trademarks and/or other proprietary rights.
+* Consequently, no title, copyright or other proprietary rights
+* other than those specified in the applicable license is granted.
+*/
 // Low level POP3 client.
 //
 // Reference:
@@ -45,7 +39,8 @@
 // 		was a problem while reading the response. For an ok or error response, the second argument is the lines
 //		making up the response. An error is always single line (usually containing some form of explaination 
 //		from server). Ok response may be followed by additional arguments, see comments for individual comments 
-//		for details.
+//		for details. When using the RETR command, the lines making up the response is replaced by an array of 
+//		Buffer object(s) containing the actual email data, which will need to be parsed.
 
 function POP3ClientScope () {
 	
@@ -95,6 +90,8 @@ function POP3ClientScope () {
 	
 	var okRegExp	= /^\+OK/;
 	
+	var eomSequence	= [ 0x0d, 0x0a, 0x2e, 0x0d, 0x0a ];	// 0x2e is '.' character.
+	
 	// POP3Client exception, just contains an error code.
 	
 	function POP3ClientException (code) {
@@ -105,7 +102,7 @@ function POP3ClientScope () {
 	POP3ClientException.INVALID_STATE		= -1;	// Command or operation can't be performed in current state.
 	POP3ClientException.NOT_EXPECTING_DATA	= -2;	// Received data from server when not expecting some.
 	POP3ClientException.INVALID_ARGUMENT	= -3;	// Function called with incorrect arguments.
-		
+			
 	function POP3Client (address, port, isSSL, callback) {
 		
 		var state		= STATES.NOT_CONNECTED;
@@ -116,91 +113,175 @@ function POP3ClientScope () {
 		var isLinePending;	
 		
 		var responseLines;				
-		var responseCallback;		
+		var responseCallback;
 		
+		var	memoryBuffers;			// Only used by RETR command.
+					
+		// Check memory buffer(s) for end of message (a dot on a single line).
+				
+		var isEndOfMessage = function () {
+		
+			if (!memoryBuffers.length)
+			
+				return false;
+				
+			else if (memoryBuffers[memoryBuffers.length - 1].length >= 5) {
+			
+				var lastBuffer	= memoryBuffers[memoryBuffers.length - 1];
+				
+				var i, j;
+				
+				for (i = 0, j = lastBuffer.length - 5; i < 5; i++, j++)
+				
+					if (eomSequence[i] != lastBuffer[j])
+					
+						return false;
+						
+				return true;
+				
+			} else {
+				
+				// Difficult case, the end of message sequence is across multiple buffers.
+				
+				var array, i, j, k;
+				
+				array = new Array();
+				for (i = 0, j = memoryBuffers.length - 1, k = memoryBuffers[j].length - 1; i < 5; i++, k--) {
+				
+					while (k < 0) {
+					
+						if (!j)
+						
+							return false;
+							
+						else {
+						
+							j--;
+							k = memoryBuffers[j].length - 1;
+						
+						}
+					
+					}					
+					array.push(memoryBuffers[j].readUInt8(k));
+								
+				}
+				
+				for (i = 0; i < 5; i++)
+				
+					if (array[i] != eomSequence[4 - i])
+					
+						return false;
+				
+				return true;
+				
+			}
+		
+		}
+
 		// Read response. Return zero if ongoing, positive if response properly read (ok or error), or negative
 		// (see error codes) if a problem occured during reading.
 		
 		var readData = function (data) {
-		
-			var	lines = data.toString('binary').split('\r\n');	// Support 8-bit characters (8BITMIME).
-		
-			if (!isMultiLineResponse && lines.length > 2)
-			
-				return -1;
-			
-			var	i, j;
-			
-			if (isLinePending) {
-			
-				responseLines[responseLines.length - 1] = responseLines[responseLines.length - 1].concat(lines[0]);				
-				if (lines.length == 1)
+		/*
+			if (state == STATES.READING_RESPONSE_RETR) {
+
+				memoryBuffers.push(data);
+				
+				if (isEndOfMessage()) {
+				
+					var	string;
+					
+					string = memoryBuffers[0].toString('ascii', 0, 3);
+					isOkResponse = string == '+OK' ? 0 : 1;
+										
+					return 1;
+				
+				} else 
 				
 					return 0;
-					
-				else {
+			
+			} else */ {
+			
+				var	lines = data.toString('binary').split('\r\n');	// Support 8-bit characters (8BITMIME).
+						
+				if (!isMultiLineResponse && lines.length > 2)
 				
-					isLinePending = false;
-					i = 1;
+					return -1;
+				
+				var	i, j;
+				
+				if (isLinePending) {
+				
+					responseLines[responseLines.length - 1] = responseLines[responseLines.length - 1].concat(lines[0]);				
+					if (lines.length == 1)
 					
+						return 0;
+						
+					else {
+					
+						isLinePending = false;
+						i = 1;
+						
+					}
+				
+				} else
+				
+					i = 0;
+
+				for (j = responseLines.length; i < lines.length - 1; i++, j++) {
+
+					if (lines[i] == '..')	
+					
+						responseLines[j] = '.';
+						
+					else
+					
+						responseLines[j] = lines[i];
+							
 				}
-			
-			} else
-			
-				i = 0;
-
-			for (j = responseLines.length; i < lines.length - 1; i++, j++) {
-
-				if (lines[i] == '..')	
 				
-					responseLines[j] = '.';
+				// If not determined yet, check if it's an ok or error response for server.
+				
+				if (isOkResponse < 0) {
+
+					if (responseLines[0].match(okRegExp) != null)
 					
-				else
+						isOkResponse = 0;
+						
+					else { 
+					
+						// An error response is always single line.
+					
+						isOkResponse = 1;
+						isMultiLineResponse = false;
+
+					}
+			
+				}
+				
+				if (lines[i] != '') {
 				
 					responseLines[j] = lines[i];
-						
-			}
-			
-			// If not determined yet, check if it's an ok or error response for server.
-			
-			if (isOkResponse < 0) {
-
-				if (responseLines[0].match(okRegExp) != null)
+					isLinePending = true;
+					return 0;
 				
-					isOkResponse = 0;
+				} else if (isMultiLineResponse) {
+
+					// A dot ('.') on a single line indicates the end of a multi-line response.
+
+					if (lines[i - 1] == '.')
 					
-				else { 
+						return 1;
+						
+					else
+					
+						return 0;			
 				
-					// An error response is always single line.
-				
-					isOkResponse = 1;
-					isMultiLineResponse = false;
-
-				}
-		
-			}
-			
-			if (lines[i] != '') {
-			
-				responseLines[j] = lines[i];
-				isLinePending = true;
-				return 0;
-			
-			} else if (isMultiLineResponse) {
-
-				// A dot ('.') on a single line indicates the end of a multi-line response.
-
-				if (lines[i - 1] == '.')
+				} else
 				
 					return 1;
 					
-				else
-				
-					return 0;			
-			
-			} else
-			
-				return 1;
+			}
 
 		}
 			
@@ -312,7 +393,17 @@ function POP3ClientScope () {
 					
 					}
 					
-					case STATES.READING_RESPONSE_RETR: 
+					case STATES.READING_RESPONSE_RETR: {
+
+						state = STATES.IDLE;																				
+						if (typeof responseCallback == 'function') 
+						
+							responseCallback(isOkResponse, memoryBuffers);
+
+						break;
+					
+					}
+					
 					case STATES.READING_RESPONSE_DELE:
 					case STATES.READING_RESPONSE_NOOP:	
 					case STATES.READING_RESPONSE_RSET:
@@ -457,7 +548,11 @@ function POP3ClientScope () {
 					isOkResponse = -1;
 					isLinePending = false;
 					responseLines = new Array();
-					responseCallback = callback;						
+					responseCallback = callback;
+
+					if (newState == STATES.READING_RESPONSE_RETR)
+					
+						memoryBuffers = new Array();
 					
 					state = newState;
 					socket.write(command);

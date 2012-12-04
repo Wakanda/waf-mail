@@ -1,24 +1,18 @@
-/* Copyright (c) 4D, 2011
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
-
+/*
+* This file is part of Wakanda software, licensed by 4D under
+*  (i) the GNU General Public License version 3 (GNU GPL v3), or
+*  (ii) the Affero General Public License version 3 (AGPL v3) or
+*  (iii) a commercial license.
+* This file remains the exclusive property of 4D and/or its licensors
+* and is protected by national and international legislations.
+* In any event, Licensee's compliance with the terms and conditions
+* of the applicable license constitutes a prerequisite to any use of this file.
+* Except as otherwise expressly stated in the applicable license,
+* such license does not include any other license or rights on this file,
+* 4D's and/or its licensors' trademarks and/or other proprietary rights.
+* Consequently, no title, copyright or other proprietary rights
+* other than those specified in the applicable license is granted.
+*/
 // POP3 library.
 //
 // Usage:
@@ -367,8 +361,8 @@ var getAll = function (address, port, isSSL, username, password, allMails, doMar
 	var	status		= false;
 	
 	if (typeof address != 'string' || typeof port != 'number' || typeof isSSL != 'boolean'
-		|| typeof username != 'string' || typeof password != 'string' 
-		|| !(allMails instanceof Array) || allMails.length)
+	|| typeof username != 'string' || typeof password != 'string' 
+	|| !(allMails instanceof Array) || allMails.length)
 		
 		throw new pop3.POP3Exception(pop3.POP3Exception.INVALID_ARGUMENT);	
 
@@ -415,8 +409,8 @@ var getAll = function (address, port, isSSL, username, password, allMails, doMar
 	
 	}
 		
-	retrievalState = function (isOk, response, numberMessages) {
-
+	retrievalState = function (isOk, response, numberMessages) {		
+	
 		if (!isOk)
 				
 			exit();
@@ -427,7 +421,7 @@ var getAll = function (address, port, isSSL, username, password, allMails, doMar
 			
 		else {
 			
-			var	i = 1;
+			var	i = 1;	//** numberMessages - 1
 			
 			// Callbacks for retrieval "asynchronous" loop.
 			
@@ -463,7 +457,7 @@ var getAll = function (address, port, isSSL, username, password, allMails, doMar
 					exit();
 										
 				else {
-					
+										
 					allMails.push(response);
 					if (doMarkForDeletion) 
 						
