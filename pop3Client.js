@@ -1,18 +1,24 @@
-/*
-* This file is part of Wakanda software, licensed by 4D under
-*  (i) the GNU General Public License version 3 (GNU GPL v3), or
-*  (ii) the Affero General Public License version 3 (AGPL v3) or
-*  (iii) a commercial license.
-* This file remains the exclusive property of 4D and/or its licensors
-* and is protected by national and international legislations.
-* In any event, Licensee's compliance with the terms and conditions
-* of the applicable license constitutes a prerequisite to any use of this file.
-* Except as otherwise expressly stated in the applicable license,
-* such license does not include any other license or rights on this file,
-* 4D's and/or its licensors' trademarks and/or other proprietary rights.
-* Consequently, no title, copyright or other proprietary rights
-* other than those specified in the applicable license is granted.
-*/
+/* Copyright (c) 4D, 2011
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+
 // Low level POP3 client.
 //
 // Reference:
@@ -132,7 +138,7 @@ function POP3ClientScope () {
 				var i, j;
 				
 				for (i = 0, j = lastBuffer.length - 5; i < 5; i++, j++)
-				
+								
 					if (eomSequence[i] != lastBuffer[j])
 					
 						return false;
@@ -182,25 +188,35 @@ function POP3ClientScope () {
 		// (see error codes) if a problem occured during reading.
 		
 		var readData = function (data) {
-		/*
+					
 			if (state == STATES.READING_RESPONSE_RETR) {
-
+			
 				memoryBuffers.push(data);
+				if (memoryBuffers.length == 1) {
 				
+					// Check if retrieval failed.
+				
+					string = memoryBuffers[0].toString('ascii', 0, 4);
+					if (string == '-ERR')
+					
+						return -1;
+				
+				} 
+
 				if (isEndOfMessage()) {
 				
 					var	string;
 					
 					string = memoryBuffers[0].toString('ascii', 0, 3);
 					isOkResponse = string == '+OK' ? 0 : 1;
-										
+					
 					return 1;
 				
 				} else 
 				
 					return 0;
 			
-			} else */ {
+			} else {
 			
 				var	lines = data.toString('binary').split('\r\n');	// Support 8-bit characters (8BITMIME).
 						
@@ -343,8 +359,8 @@ function POP3ClientScope () {
 							
 								if (array != null) {
 								
-									numberMessages = array[1];
-									totalSize = array[2];		
+									numberMessages = Number(array[1]);
+									totalSize = Number(array[2]);
 								
 								}
 								

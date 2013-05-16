@@ -1,18 +1,24 @@
-/*
-* This file is part of Wakanda software, licensed by 4D under
-*  (i) the GNU General Public License version 3 (GNU GPL v3), or
-*  (ii) the Affero General Public License version 3 (AGPL v3) or
-*  (iii) a commercial license.
-* This file remains the exclusive property of 4D and/or its licensors
-* and is protected by national and international legislations.
-* In any event, Licensee's compliance with the terms and conditions
-* of the applicable license constitutes a prerequisite to any use of this file.
-* Except as otherwise expressly stated in the applicable license,
-* such license does not include any other license or rights on this file,
-* 4D's and/or its licensors' trademarks and/or other proprietary rights.
-* Consequently, no title, copyright or other proprietary rights
-* other than those specified in the applicable license is granted.
-*/
+/* Copyright (c) 4D, 2011
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+
 // Email library.
 //
 // Reference:
@@ -79,6 +85,10 @@ function MailScope () {
 		organization:	'Organization',
 	
 	};
+	
+	// Instantiate a MIMEReader mail parser.
+	
+	var mimeReader	= new MIMEReader();
 	
 	function Mail (from, to, subject, content) {
 
@@ -280,7 +290,7 @@ function MailScope () {
 		
 		}
 		
-		// Retrieve body of mail, just ad CRLF at end of each line and it is ready to send using SMTP.
+		// Retrieve body of mail, just add CRLF at end of each line and it is ready to send using SMTP.
 
 		this.getBody = function () {
 		
@@ -478,6 +488,69 @@ function MailScope () {
 		
 		}
 		
+		// Parse an email from an array of buffers, which contain data received from a POP3 server.
+		
+		this.parse = function (memoryBuffers) {
+
+			body = null;		
+			try {
+			
+				mimeReader.parseMail(this, memoryBuffers);
+				
+			} catch (e) {
+			
+				// Catch text conversion errors and ignore them.
+			
+			}
+						
+			// Always parse encoded words in header field bodies.
+			
+			for (k in this) 
+			
+				if (typeof this[k] == 'string')
+				
+					this[k] = mimeReader.parseEncodedWords(this[k]);
+					
+			// If MIME is used, set body as first "text/plain" part if any.
+			
+			if  (this.isMIME()) 
+			
+				for (var i = 0; i < this.messageParts.length; i++) 
+				
+					if (this.messageParts[i].mediaType.match(/text\/plain/) != null) {
+
+						var	text	= this.messageParts[i].asText;
+						
+						this.setBodyType(this.messageParts[i].mediaType);
+						this.setBody(text.split("\r\n"));
+						
+						break;
+					
+					}
+		
+		}
+		
+		// Return true if email is using MIME, in which case content is in messageParts property.
+		// Otherwise body is an Array of lines in body property.
+		
+		this.isMIME = function () {
+		
+			return typeof this.messageParts != 'undefined';
+		
+		}
+		
+		// For MIME email, return message parts.
+		
+		this.getMessageParts = function () {
+		
+			return this.messageParts;
+		
+		}
+
+		// Old parsing routines. To be removed.
+		
+/*
+		
 		// Parse an email as received from POP3 or IMAP. Take an array of lines, startLine and endLine are the start
 		// and end (both included) indexes to read from the lines array. All arguments are mandatory. Return true if 
 		// parsed successfully.
@@ -559,6 +632,8 @@ function MailScope () {
 			return true;
 			
 		}
+
+*/
 		
 		// Handle constructor call with arguments.
 		

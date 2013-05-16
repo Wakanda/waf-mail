@@ -1,18 +1,24 @@
-/*
-* This file is part of Wakanda software, licensed by 4D under
-*  (i) the GNU General Public License version 3 (GNU GPL v3), or
-*  (ii) the Affero General Public License version 3 (AGPL v3) or
-*  (iii) a commercial license.
-* This file remains the exclusive property of 4D and/or its licensors
-* and is protected by national and international legislations.
-* In any event, Licensee's compliance with the terms and conditions
-* of the applicable license constitutes a prerequisite to any use of this file.
-* Except as otherwise expressly stated in the applicable license,
-* such license does not include any other license or rights on this file,
-* 4D's and/or its licensors' trademarks and/or other proprietary rights.
-* Consequently, no title, copyright or other proprietary rights
-* other than those specified in the applicable license is granted.
-*/
+/* Copyright (c) 4D, 2011
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+
 // SMTP library. 
 //
 // Usage:
@@ -636,9 +642,20 @@ function SMTPScope () {
 			var mimeMessage	= email.getMIMEMessage();
 			
 			if (mimeMessage != null) {
+
+				// Make sure there is only one "Content-Type" field in header. 
+				// Otherwise, some mail client may not decode message correctly as MIME multipart.
+
+				for (var k in email) 
+				
+					if (typeof email[k] == 'string' && k.match(/^content\-type$/i) != null)
+				
+						delete email[k];
+				
+				// Add MIME version and "Content-Type" field.
 			
-				message.addField('MIME-Version', '1.0');
-				message.addField('Content-Type', 'multipart/mixed; boundary="' + mimeMessage.boundary + '"');
+				email.addField('MIME-Version', '1.0');
+				email.addField('Content-Type', 'multipart/mixed; boundary="' + mimeMessage.boundary + '"');
 			
 			}
 			
@@ -728,7 +745,7 @@ function SMTPScope () {
 		
 		// If arguments are given, connect on creation.
 			
-		if (arguments.length > 0) 
+		if (typeof address != 'undefined' && typeof port != 'undefined') 
 			
 			this.connect(address, port, isSSL, domain, callback);
 		
@@ -743,7 +760,7 @@ var SMTP	= SMTPScope();
 // Create a new SMTP client.
 
 var createClient = function (address, port, isSSL, domain, callback) {
-
+	
 	return new SMTP(address, port, isSSL, domain, callback);
 
 }
